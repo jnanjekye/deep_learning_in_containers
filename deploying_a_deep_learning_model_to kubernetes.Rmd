@@ -42,7 +42,7 @@ A node is a host machine in a kubernetes cluster. This host machine may be a vir
 
 A kubernetes cluster consists of master and other worker machines called nodes.
 
-## Startting a kubernetes cluster
+## Starting a kubernetes cluster
 
 We will use minikube. This is a light-weight local deployment of kubernetes. It makes it easy to run a kubernetes cluster locally and runs a single-node Kubernetes cluster inside a virtual machine on your laptop. For details on Installing minikube, check out for the [official documentation](https://kubernetes.io/docs/tasks/tools/install-minikube/).
 
