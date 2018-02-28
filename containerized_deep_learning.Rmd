@@ -1,0 +1,187 @@
+---
+title: "Containerized Deep Learning"
+author: "Joannah Nanjekye"
+date: "February 24, 2018"
+output: html_document
+---
+
+Deploying robust deep learning models that can stand the waves in production has always been challenging. Currently we can use tensorflow serving that uses a server to route requests to the deep learning model. It is important that we package this server with all its dependecies for deployment as a whole. This abstracts the models from any environment they will be running giving them the ability to be easily and consistently deployed. 
+
+This can be achieved through either the use of virtual machines or the famous containers that will be the focus of this blog. Containers help us effectively achieve this abstraction and are lighter than the virtual machine image implementations.
+
+In this blog, I will discuss how:
+
+* To prepare deep learning models for hosting.
+* Containerizing the deep learning models.
+
+Before we go into anything, let me define some terminologies.
+
+## Deep Learning
+
+Deep learning is a machine learning technique that is based on learning from data representations. It has made significant strides in the development of artificial intelligence, with specific great breakthroughs in the fields of image, natural language processing and audio processing.
+
+## Containers
+
+Containers as earlier pointed out, give us a way of abstracting our application from its environment. This solves the problem most developers face of an application running on their machines and breaking when run on another infrastructure and operating system.
+
+With containers, we package the application , its dependencies, binaries, libraries and config files as a single package that can be deployed to an environment as a whole. Containerizing applications abstracts the underlying infrastructure, operating system and any other environment dependent factors giving us the beenefit of reliable deployments.
+
+## Tooling
+
+There are many ways to implement deep learning models but also many ways to containerize deep learning pipelines and any other applications for that matter. In this tutorial we will work with:
+
+* Tensorflow as deep learning framework.
+* Docker for containerization
+
+## Preparing the Deep Learning models
+
+Assuming you have created a deep learning model with tensorflow, to get ready for containerization, we will prepare our deep learning model for TensorFlow serving.
+
+* Get the example source code
+
+```
+cd ~
+
+git clone https://github.com/jnanjekye/deep_learning_in_containers
+
+cd deep_learning_in_containers
+
+
+```
+
+
+To do this, we will export the deep learning model as protobuf for hosting. Protocol buffers enable for effective data serialization.
+
+```
+python test_model.py --output_dir=./test-export --model-version=1
+
+```
+
+Exporting the model will make it ready to be served by TensorFlow 
+
+## Containerizing a Deep Learning Model
+
+Our deep learning model is now ready for tensorflow serving. We will now go on and create a docker container and run our model in it.
+
+The first thing to ensure is that you have docker installed. You can follow the [detailed instructions] (https://docs.docker.com/install/) for installing docker. After installing, check the docker version for confirmation.
+
+```
+docker version
+
+```
+### Clone TensorFlow Serving
+
+We will get the docker images by cloning the TensorFlow serving repository.
+
+```
+git clone --recurse-submodules https://github.com/tensorflow/serving.git
+
+```
+This also clones Tensorflow and Tensorflow Models.
+
+### Build the Docker images
+
+Docker is able to automatically build images using instructions from a Docker file. We get two dockerfiles from TensorFlow Serving in ` serving/tensorflow_serving/tools/docker `. On of them is for the CPU build and the other for the GPU build.
+
+The GPU DockerFile looks: Dockerfile.devel-gpu
+
+```
+# Build TensorFlow Serving and Install it in /usr/local/bin
+WORKDIR /serving
+
+RUN bazel build -c opt — config=cuda \
+ --crosstool_top=@local_config_cuda//crosstool:toolchain \
+ tensorflow_serving/model_servers:tensorflow_model_server && \
+ cp bazel-bin/tensorflow_serving/model_servers/tensorflow_model_server /usr/local/bin/ && \
+ bazel clean --expunge
+
+CMD [“/bin/bash”]
+
+```
+
+The CPU DockerFile looks: Dockerfile.devel
+
+```
+# Build TensorFlow Serving and Install it in /usr/local/bin
+WORKDIR /serving
+
+RUN bazel build -c opt — config=cuda \
+ --crosstool_top=@local_config_cuda//crosstool:toolchain \
+ tensorflow_serving/model_servers:tensorflow_model_server && \
+ cp bazel-bin/tensorflow_serving/model_servers/tensorflow_model_server /usr/local/bin/ && \
+ bazel clean --expunge
+
+CMD [“/bin/bash”]
+
+```
+Depending on what build you want, We will use one of the files for creating our docker images for the deep learning models.
+
+### Creating the Docker Images
+
+For the GPU build Execute the command:
+
+```
+
+cd serving
+docker build --pull -t $USER/tensorflow-serving-devel-gpu -f tensorflow_serving/tools/docker/Dockerfile.devel-gpu .
+
+```
+For the CPU build, execute the command:
+
+```
+cd serving
+docker build --pull -t $USER/tensorflow-serving-devel -f tensorflow_serving/tools/docker/Dockerfile.devel .
+
+```
+
+This downloads all dependencies and builds the image. We can now run the docker container.
+
+For GPU:
+
+
+```
+docker run --name=test_model_container -it $USER/tensorflow-serving-devel-gpu
+
+```
+
+For CPU:
+
+
+```
+docker run --name=test_model_container -it $USER/tensorflow-serving-devel
+
+```
+We have to provide a name for our container.
+
+### Start the Docker container 
+
+Running the container in the previous step starts the container but incase it exits you can start it with:
+
+```
+docker start -i test_model_container
+
+```
+
+This container now has everything we need installed.
+
+
+## Deploy the Deep learning model to the Container
+
+Now that our container is up and running, we can now copy the exported deep learning model into the tensorflow serving model.
+
+```
+
+docker cp /test-export:/serving
+
+```
+We are referencing the ./test-export exported model.
+
+## Conclusion
+
+We have explored the holistic approach of creating a tensorflow docker container and copied the deep learning model into it. We are now ready to deploy this container anywhere.
+
+**About the Author**
+
+Joannah Nanjekye is from Uganda, a software engineer, conference speaker and a proud FOSS (Free and Open Source Software) contributor who presented at PyCon ZA in South Africa in 2016 and 2017. She shares her knowledge on implementation for Python 2 and 3 support from experiences on her work on open source projects. She worked as a software developer for Laboremus Uganda and Fintech Uganda before pursuing a career as an Aeronautical Engineer with a bias in Avionics at Kenya Aeronautical College. She is a proud Rails Girls Summer of Code alumnae and was mentored into FOSS development during her time as a scholar.
+
+Learn more about Python from the author’s recent book, [Python 2 and 3 Compatibility](https://www.apress.com/de/book/9781484229545). Get your copy today and discover clean ways to write code that will run on both Python 2 and 3, including detailed examples of how to convert existing Python 2-compatible code to code that will run reliably on both Python 2 and 3.

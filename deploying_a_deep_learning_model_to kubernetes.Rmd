@@ -1,0 +1,162 @@
+---
+title: "Deploying a Deep Learning Model to Kubernetes "
+author: "Joannah Nanjekye"
+date: "February 24, 2018"
+output: html_document
+---
+
+Kubernetes is an open source platform that features deployment, maintenance and scaling mechanisms that help us simplify the management of containerized applications while giving us portability, extensibility and self-healing capabilities for our applications.
+
+Whether you want to run a simple application or a complex one, Kubernetes can quickly and efficiently help you deploy and scale your applications, seamlessly roll out new features while limiting resources to only required resources. In this article, I will cover a holistic process of deploying a deep learning model to Kubernetes. 
+
+In my last blog, I discussed how to [containerize deep learning models](./containerized_deep_learning). In this blog, we will we will complete the last mile of deployment to kubernetes.
+
+We will discuss:
+
+* An overview on kubernetes
+* How to create a kubernetes cluster
+* Publishing the container Images
+* Deploying the Deep Learning Model to kubernetes
+
+## Overview on kubernetes
+
+Kubernetes is an open source platform for managing containerized applications in a cluster. In production, a deep learning pipeline is sually packaged in containers each container achieving a specific task in the pipeline. Over time , these containers become many and may span or be run on multiple hosts or servers. This is where we need an ochestrator for management of these containers.
+
+### Why kubernetes
+
+Kubernetes comes to the rescue in managing multiple containers deployed on multiple hosts. Kubernetes orchestration enable us to build the deep learning services that can span multiple containers, schedule these containers across a given cluster, scale those containers, and manage the health of these containers continually.
+
+### Common Kubernetes terminology
+
+Before we go deep in to the details of deploying a deep learning model to kubernetes, Let us discuss some terms in relation to kubernetes that we will use in the course of this blog.
+
+* Pod
+
+A pod in kubernetes is a group of two or more containers that work together to achieve a common function. The containers share storage and or network and should have specifications on how they shoould be run.
+
+* Node
+
+A node is a host machine in a kubernetes cluster. This host machine may be a virtual machine or a physical machine depending on the cluster.
+
+* Cluster
+
+A kubernetes cluster consists of master and other worker machines called nodes.
+
+## Startting a kubernetes cluster
+
+We will use minikube. This is a light-weight local deployment of kubernetes. It makes it easy to run a kubernetes cluster locally and runs a single-node Kubernetes cluster inside a virtual machine on your laptop. For details on Installing minikube, check out for the [official documentation](https://kubernetes.io/docs/tasks/tools/install-minikube/).
+
+After suceesful installation of minikube, you should be able to chack your version.
+
+```
+minikube version
+
+```
+
+We can now start our kubernetes cluster locally.
+
+```
+minikube start
+
+```
+You should have an output similar to this.
+
+```
+Starting local Kubernetes cluster...
+Running pre-create checks...
+Creating machine...
+Starting local Kubernetes cluster...
+```
+
+## Preparing our docker image for deployment
+
+We can publish our Python container image to different private/public cloud repositories like Dockerhub, AWS ECR, Google Container Registry, etc. For purposes of this tutorial, we shall use Dockerhub.
+
+Before publishing the image, we need to tag it to a version.
+
+```
+
+docker tag $USER/tensorflow-serving-devel:latest $USER/tensorflow-serving-devel:0.1
+
+```
+
+Once this is done, push the image to the cloud repository. Using a Docker registry other than Dockerhub to store images requires you to add that container registry to the local Docker daemon and Kubernetes Docker daemons. You can look up this information for the different cloud registries. We shall use Dockerhub in this example.
+
+Execute this Docker command to push the image.
+
+```
+docker push $USER/tensorflow-serving-devel
+
+```
+
+## Deploying the model to kubernetes
+
+To manage our last mile of deploying the application to Kubernetes, we will create two important files:
+
+**Service file**
+
+Create a file and name it “test_model.service.yml” with the following content.
+
+```
+
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+  k8s-app: $USER/tensorflow-serving-devel
+  name: $USER/tensorflow-serving-devel
+  namespace: $USER/tensorflow-serving-devel
+spec:
+  type: NodePort
+  ports:
+  - port: 5035
+  selector:
+  k8s-app: $USER/tensorflow-serving-devel
+
+```
+
+**Deployment file**
+
+Create a file and name it “test_model.deployment.yml” with the following content.
+
+```
+
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: $USER/tensorflow-serving-devel
+  namespace: $USER/tensorflow-serving-devel
+spec:
+  replicas: 1
+  template:
+  metadata:
+    labels:
+    k8s-app: $USER/tensorflow-serving-devel
+  spec:
+    containers:
+    - name: $USER/tensorflow-serving-devel
+      image: $USER/tensorflow-serving-devel:0.1
+      imagePullPolicy: "IfNotPresent"
+      ports:
+      - containerPort: 5035
+      volumeMounts:
+        - mountPath: /app-data
+          name: $USER/tensorflow-serving-devel
+
+```
+
+Finally use kubectl to deploy the application to Kubernetes:
+
+```
+kubectl create -f test_model.deployment.yml 
+kubectl create -f k8s_python_sample_code.service.yml
+
+```
+
+Our deep learning model is now suceessfully deployed to kubernetes.
+
+About the Author
+
+Joannah Nanjekye is from Uganda, a software engineer, conference speaker and a proud FOSS (Free and Open Source Software) contributor who presented at PyCon ZA in South Africa in 2016 and 2017. She shares her knowledge on implementation for Python 2 and 3 support from experiences on her work on open source projects. She worked as a software developer for Laboremus Uganda and Fintech Uganda before pursuing a career as an Aeronautical Engineer with a bias in Avionics at Kenya Aeronautical College. She is a proud Rails Girls Summer of Code alumnae and was mentored into FOSS development during her time as a scholar.
+
+Learn more about Python from the author’s recent book, [Python 2 and 3 Compatibility](https://www.apress.com/de/book/9781484229545). Get your copy today and discover clean ways to write code that will run on both Python 2 and 3, including detailed examples of how to convert existing Python 2-compatible code to code that will run reliably on both Python 2 and 3.
