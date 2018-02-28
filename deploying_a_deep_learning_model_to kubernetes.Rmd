@@ -149,7 +149,7 @@ Finally use kubectl to deploy the application to Kubernetes:
 
 ```
 kubectl create -f test_model.deployment.yml 
-kubectl create -f k8s_python_sample_code.service.yml
+kubectl create -f test_model.service.yml
 
 ```
 
